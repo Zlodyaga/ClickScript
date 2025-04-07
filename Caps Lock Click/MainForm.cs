@@ -17,7 +17,7 @@ namespace CapsLockClicker
         private LowLevelKeyboardProc _keyboardProc;
         private LowLevelMouseProc _mouseProc;
 
-        private int timeForPause = convertNumberToSeconds(5);
+        private int timeForPause = convertNumberToSeconds(60);
         private int startPeriodForRandom = convertNumberToMinutes(3);
         private int endPeriodForRandom = convertNumberToMinutes(6);
 
