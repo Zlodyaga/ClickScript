@@ -17,43 +17,47 @@ namespace CapsLockClicker
         private LowLevelKeyboardProc _keyboardProc;
         private LowLevelMouseProc _mouseProc;
 
+        private int timeForPause = convertNumberToSeconds(5);
+        private int startPeriodForRandom = convertNumberToMinutes(3);
+        private int endPeriodForRandom = convertNumberToMinutes(6);
+
         public MainForm()
         {
             InitializeComponent();
 
-            // Инициализация хуков
+            // Initialize of hooks
             _keyboardProc = HookCallback;
             _mouseProc = MouseHookCallback;
             _keyboardHookID = SetHook(_keyboardProc);
             _mouseHookID = SetMouseHook(_mouseProc);
 
-            // Настройка таймера
+            // Set-up of timer
             timer = new System.Windows.Forms.Timer();
             timer.Tick += Timer_Tick;
             SetNextInterval();
             timer.Start();
 
-            LogDebug("Приложение запущено.");
+            LogDebug("App started.");
         }
 
         private void Timer_Tick(object sender, EventArgs e)
         {
-            if (isPaused) return; // Если пауза активна — не выполняем клики
+            if (isPaused) return; // If pause active - don't click
 
             ClickCapsLock();
             Task.Delay(1000).Wait();
             ClickCapsLock();
 
-            LogDebug("Caps Lock был дважды нажат.");
+            LogDebug("Caps Lock was clicked twice.");
 
-            SetNextInterval(); // Устанавливаем следующий интервал
+            SetNextInterval(); // Set next interval for click
         }
 
         private void SetNextInterval()
         {
-            int interval = random.Next(3 * 60 * 1000, 8 * 60 * 1000); // от 3 до 8 минут в миллисекундах
+            int interval = random.Next(startPeriodForRandom, endPeriodForRandom);
             timer.Interval = interval;
-            LogDebug($"Следующий клик через {interval / (60 * 1000)} минут. ({interval / 1000} секунд)");
+            LogDebug($"Next click will be in {interval / (convertNumberToSeconds(60))} minutes ({interval / 1000} seconds)");
         }
 
         private void ClickCapsLock()
@@ -62,7 +66,7 @@ namespace CapsLockClicker
             keybd_event((byte)Keys.CapsLock, 0, 2, 0);
         }
 
-        // Установка хуков
+        // Hook set-up
         private IntPtr SetHook(LowLevelKeyboardProc proc)
         {
             using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
@@ -81,7 +85,7 @@ namespace CapsLockClicker
             }
         }
 
-        // Коллбэк для клавиатуры
+        // Callback for keyboard
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
@@ -92,11 +96,11 @@ namespace CapsLockClicker
             return CallNextHookEx(_keyboardHookID, nCode, wParam, lParam);
         }
 
-        // Коллбэк для мыши (только клики!)
+        // Callback for mouse (ONLY clicks!)
         private delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
         private IntPtr MouseHookCallback(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && (wParam == (IntPtr)0x201 || wParam == (IntPtr)0x204)) // WM_LBUTTONDOWN (0x201) или WM_RBUTTONDOWN (0x204)
+            if (nCode >= 0 && (wParam == (IntPtr)0x201 || wParam == (IntPtr)0x204)) // 0x201 - left button click or 0x204 - right button click
             {
                 PauseAndResetTimer();
             }
@@ -109,25 +113,26 @@ namespace CapsLockClicker
             {
                 isPaused = true;
                 timer.Stop();
-                LogDebug("Обнаружена активность (клавиша или клик). Таймер приостановлен на 1,5 минуты...");
+                LogDebug($"Activity of user was detected. Timer stopped for {timeForPause / 1000} seconds");
 
-                await Task.Delay(90 * 1000); // Асинхронная пауза в 90 секунд
+                await Task.Delay(timeForPause); // Async pause
 
+                LogDebug("Timer repaused.");
                 isPaused = false;
                 timer.Start();
                 SetNextInterval();
-                LogDebug("Таймер возобновлён.");
             }
         }
 
 
-        // Метод для логирования в Debug
-        private void LogDebug(string message)
-        {
-            Debug.WriteLine($"{DateTime.Now:HH:mm:ss} - {message}");
-        }
+        // Method for logging in Debug
+        private void LogDebug(string message) => Debug.WriteLine($"{DateTime.Now:HH:mm:ss} - {message}");
 
-        // Импорты WinAPI
+        private static int convertNumberToSeconds(int number) => number * 1000;
+
+        private static int convertNumberToMinutes(int number) => convertNumberToSeconds(number) * 60;
+
+        // Imports WinAPI
         [DllImport("user32.dll", SetLastError = true)]
         private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, int dwExtraInfo);
 
